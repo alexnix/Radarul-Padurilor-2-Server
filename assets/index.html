@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Radarul Padurii 2 - Panou de administrare</title>
+	<link href="http://fonts.googleapis.com/css?family=Oswald:700|Droid+Serif:400,700italic" rel="stylesheet" type="text/css" />
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+	<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/angular_material/1.1.0/angular-material.min.css">
+
+	<style type="text/css">
+	html, body{
+		background-color: #efefef;
+		height: 100%;
+	}
+	nav ul li {
+		float: left;
+		list-style-type: none;
+	}
+	nav ul li a {
+		padding: 10px;
+		color: black;
+		margin: 5px;
+		border-radius: 30px;
+		background-color: #dfdfdf;
+	}
+	nav ul li a:hover {
+		text-decoration: none;
+		color: black;
+		cursor: pointer;
+		background: black;
+		color: white;
+	}
+	</style>
+</head>
+<body>
+
+
+	<div class="container" ng-app="app">
+		<br/>
+		<nav ng-init="visible='camioane'">
+			<ul>
+				<li><a ng-click="visible='camioane'">Camioane</a></li>
+				<li><a ng-click="visible='sesizari'">Sesizari</a></li>
+			</ul>
+		</nav>	
+
+		<br/><br/>
+
+		<div class="trucks" ng-controller="TrucksCtrl" ng-show="visible=='camioane'">
+			<div class="col-md-3" ng-repeat="truck in trucks" >
+				<md-card>
+					<md-card-content>
+						<img src="/images/truck_marker.png" style="width: 100%" />
+						<h2>{{truck.numar_de_inmatriculare}}</h2>
+						<p>
+							<b>Adaugat la</b>: {{truck.createdAt}}
+							<br/>
+							<b>Continutul transportului:</b> {{truck.continutul_transportului}}
+						</p>
+					</md-card-content>
+					<div class="md-actions" layout="row|column" layout-align="start|end|center start|end|center">
+					   <md-button ng-click="vezi_pe_harta(truck, $event)">Vezi pe harta</md-button>
+					 </div>
+				</md-card>
+			</div>
+			<div class="clearfix"></div>
+			<div class="col-md-3">
+				<md-card>
+					<md-card-content>
+						<h2>Adauga camion</h2>
+						<p>
+							<md-input-container>
+								<label>Numar de inmatriculare</label>
+								<input type="text" ng-model="truck.numar_de_inmatriculare">
+							</md-input-container>
+							<md-input-container>
+								<label>Contrinutul Transportului</label>
+								<input type="text" ng-model="truck.continutul_transportului">
+							</md-input-container>
+						</p>
+					</md-card-content>
+					<div class="md-actions" layout="row|column" layout-align="start|end|center start|end|center">
+					   <md-button ng-disabled="!truck.numar_de_inmatriculare || !truck.continutul_transportului" ng-click="add($event)">Adauga</md-button>
+					 </div>
+				</md-card>
+			</div>
+		</div>
+
+		<div ng-show="visible=='sesizari'">
+			<table style="width:100%" class="table">
+			  <tr>
+			    <th>Data</th>
+			    <th>Numar de inmatriculare</th> 
+			    <th>Latitudine</th>
+			    <th>Longitudine</th>
+			  </tr>
+			  <tr ng-repeat="report in reports">
+			    <td>{{report.createdAt}}</td>
+			    <td>{{report.numar_de_inmatriculare}}</td> 
+			    <td>{{report.lat}}</td>
+			    <td>{{report.lng}}</td>
+			    <td>{{report.optional_message}}</td>
+			  </tr>
+			</table>
+		</div>
+	</div>
+
+	<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAWColN1am3vdiGdBssTJ6Vp1aoQ1SwjdA"
+    async defer></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+	<script type="text/javascript" src="/js/dependencies/sails.io.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular.min.js"></script>
+	<!-- Angular Material requires Angular.js Libraries -->
+	<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular-animate.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular-aria.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular-messages.min.js"></script>
+
+	<!-- Angular Material Library -->
+	<script src="http://ajax.googleapis.com/ajax/libs/angular_material/1.1.0/angular-material.min.js"></script>
+	<script>
+
+		var app = angular.module("app", ['ngMaterial']);
+		app.run(($rootScope, $mdToast) => {
+			io.socket.on('report', function gotHelloMessage (data) {
+				if(data.verb == "created") {
+					console.log(data);
+					$rootScope.reports.push(data.data);
+					$mdToast.show(
+						$mdToast.simple()
+						.textContent('Sesizare noua!')
+						.action('Vezi')
+						.position('top right')
+						.hideDelay(3000)
+					).then(response => {
+						if(response == 'ok')
+							$rootScope.visible = 'sesizari';
+					});
+				}
+			});
+
+			io.socket.get('/api/report', function gotResponse(body, response) {
+				$rootScope.reports = body;
+			});	
+		});
+		app.controller('TrucksCtrl', function($http, $scope, $mdDialog){
+			$http.get('/api/truck').then(res => {
+				$scope.trucks = res.data;
+			});
+			$scope.vezi_pe_harta = (truck, ev) => {
+				$scope.current_truck = truck;
+				openMap(ev);
+			};
+			$scope.add = function(ev) {
+				$scope.current_truck = null;
+				openMap(ev);
+			}
+
+			function openMap(ev) {
+				$mdDialog.show({
+					controller: ctrl,
+					templateUrl: 'dialog.html',
+					scope: $scope.$new(),
+					parent: angular.element(document.body),
+					targetEvent: ev,
+					clickOutsideToClose:true,
+			    })
+			    .then(function(answer) {
+					$scope.status = 'You said the information was "' + answer + '".';
+			    }, function() {
+					$scope.status = 'You cancelled the dialog.';
+			    });
+
+			    function ctrl($scope, $http) {
+					var map, marker;
+
+					setTimeout(() => {
+						map = new google.maps.Map(document.getElementById('map'), {
+							center: {lat: 44.4268, lng: 26.1025},
+							zoom: 12
+				        });
+				        if($scope.current_truck)
+				        	createMaker($scope.current_truck);
+				        else
+					        google.maps.event.addListener(map, "rightclick", event => {
+					        	if($scope.current_truck == null) {
+					        		$http.post('/api/truck', {
+					        			numar_de_inmatriculare: $scope.truck.numar_de_inmatriculare,
+					        			continutul_transportului: $scope.truck.continutul_transportului,
+					        			lat: event.latLng.lat(),
+					        			lng: event.latLng.lng(),
+					        		}).then(res => {
+					        			createMaker(res.data);
+					        			$scope.trucks.push(res.data);
+					        			$scope.current_truck = res.data;
+					        		})
+					        	}
+							});
+					}, 10);
+
+					var createMaker = truck => {
+						marker = new google.maps.Marker({
+						    position: {
+						    	lat: truck.lat,
+						    	lng: truck.lng,
+						    },
+					    	icon: '/images/truck_marker_small.png',
+						    map: map,
+						});
+					}
+
+
+					var step = 0.000014;
+					$(document).keydown(function(e){
+					    var was_comand = false;
+					    if (e.keyCode == 87){ //W Up
+					    	if($scope.current_truck) {
+					    		was_comand = true;
+					    		$scope.current_truck.lat += step;
+					    	}
+					    }
+					    if (e.keyCode == 68){ //D Right
+					    	if($scope.current_truck) {
+					    		was_comand = true;
+					    		$scope.current_truck.lng += step
+					    	}
+					    }
+					    if (e.keyCode == 83){ //S Down
+					    	if($scope.current_truck) {
+					    		was_comand = true;
+					    		$scope.current_truck.lat -= step;
+					    	}
+					    }
+					    if (e.keyCode == 65){ //A Left
+					    	if($scope.current_truck) {
+					    		was_comand = true;
+					    		$scope.current_truck.lng -= step
+					    	}
+					    }
+
+					    if(was_comand) {
+					    	var newPosition = {
+					    		lat: $scope.current_truck.lat,
+					    		lng: $scope.current_truck.lng,
+					    	};
+					    	marker.setPosition(newPosition)
+					    	$http.put('/api/truck/' + $scope.current_truck.id, newPosition);
+					    }
+					});
+
+				}
+			}
+		});
+	</script>
+</body>
+</html>
